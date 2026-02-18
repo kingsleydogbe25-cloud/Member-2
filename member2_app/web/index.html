@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member 2</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body>
+
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <div class="splash-blob splash-blob-1"></div>
+        <div class="splash-blob splash-blob-2"></div>
+        <div class="splash-blob splash-blob-3"></div>
+        <div class="splash-card">
+            <div class="splash-icon">
+                <i class="fas fa-users-cog"></i>
+            </div>
+            <div class="splash-title">Member 2</div>
+            <div class="splash-tagline">Data Manager &amp; Member Registry</div>
+            <div class="splash-loader-track">
+                <div class="splash-loader-bar"></div>
+            </div>
+            <div class="splash-status">Initializing...</div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav id="sidebar">
+        <!-- toggle button will be inserted by JS for flexibility -->
+        <div class="brand">
+            <i class="fas fa-users-cog"></i><span class="brand-text">Member 2</span>
+        </div>
+        <a class="nav-link active" onclick="app.navigate('dashboard')"><i class="fas fa-chart-pie"></i><span class="link-text">Dashboard</span></a>
+        <a class="nav-link" onclick="app.navigate('members')"><i class="fas fa-users"></i><span class="link-text">Members</span></a>
+        <a class="nav-link" onclick="app.navigate('add-member')"><i class="fas fa-user-plus"></i><span class="link-text">Add Member</span></a>
+        <a class="nav-link" onclick="app.navigate('schema')"><i class="fas fa-tools"></i><span class="link-text">Member Details</span></a>
+        <a class="nav-link" onclick="app.navigate('settings')"><i class="fas fa-cog"></i><span class="link-text">Settings & Backup</span></a>
+    </nav>
+
+    <!-- Main Content -->
+    <main id="main-content">
+
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="active">
+            <h1>Dashboard</h1>
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-members-count">0</div>
+                    <div>Total Members</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="new-members-count">0</div>
+                    <div>New This Month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="popular-category">-</div>
+                    <div>Top Category</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+                <div class="card">
+                    <h3>Category Breakdown</h3>
+                    <div style="height: 250px; position: relative;">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Recent Members</h3>
+                    <div class="member-grid" id="dashboard-recent-members">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Members Section -->
+        <section id="members">
+            <h1>Members</h1>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+                <input type="text" id="search-bar" placeholder="Search members..." oninput="app.onSearch()"
+                    style="flex: 1; min-width: 200px;">
+
+                <select id="category-filter" onchange="app.filterMembers()">
+                    <option value="">All Categories</option>
+                    <!-- Populated by JS -->
+                </select>
+
+                <select id="sort-order" onchange="app.filterMembers()">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="az">Name (A-Z)</option>
+                    <option value="za">Name (Z-A)</option>
+                </select>
+
+                <div style="display: flex; gap: 5px;">
+                    <button class="secondary" onclick="document.getElementById('import-file').click()" title="Import"><i
+                            class="fas fa-file-import"></i> Import</button>
+                    <input type="file" id="import-file" accept=".json,.csv" style="display: none;"
+                        onchange="app.importData(this)">
+                </div>
+            </div>
+
+            <div class="member-grid" id="members-list">
+                <!-- Populated by JS -->
+            </div>
+
+            <div id="pagination-controls"
+                style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px;">
+                <button class="secondary" onclick="app.changePage(-1)" id="prev-page-btn" disabled>Previous</button>
+                <span id="page-indicator">Page 1 of 1</span>
+                <button class="secondary" onclick="app.changePage(1)" id="next-page-btn" disabled>Next</button>
+            </div>
+        </section>
+
+        <!-- Add Member Section -->
+        <section id="add-member">
+            <h1 id="add-member-title">Add New Member</h1>
+            <div class="card">
+                <form id="add-member-form">
+                    <input type="hidden" name="id" id="member-id-hidden">
+                    <!-- Dynamic fields will be injected here -->
+                    <div id="dynamic-form-fields"></div>
+
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="member-category-select" name="category">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+
+                    <button type="submit">Save Member</button>
+                    <button type="button" class="secondary" onclick="app.resetForm()">Reset</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Schema Builder Section (Member Details) -->
+        <section id="schema">
+            <h1>Member Details Configuration</h1>
+            <div class="card">
+                <p>Define what data you want to collect for each member.</p>
+                <table id="schema-table">
+                    <thead>
+                        <tr>
+                            <th>Field Label</th>
+                            <th>Field Type</th>
+                            <th>Options (Select only)</th>
+                            <th>Required?</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+                <button class="secondary" style="margin-top: 15px;" onclick="app.addSchemaRow()">+ Add Field</button>
+                <br><br>
+                <button onclick="app.saveSchema()">Save Configuration</button>
+            </div>
+        </section>
+
+        <!-- Settings Section -->
+        <section id="settings">
+            <h1>Settings</h1>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <h3>Export Data</h3>
+                <p>Download your member data in various formats.</p>
+                <div style="display: flex; gap: 10px;">
+                    <button class="secondary" onclick="app.exportData()"><i class="fas fa-file-code"></i> JSON</button>
+                    <button class="secondary" onclick="app.exportCSV()"><i class="fas fa-file-csv"></i> Excel
+                        (CSV)</button>
+                    <button class="secondary" onclick="app.exportPDF()"><i class="fas fa-file-pdf"></i> PDF
+                        Report</button>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <h3>Application Settings</h3>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Theme</label>
+                    <select id="setting-theme" onchange="app.saveSettings()">
+                        <option value="dark">Dark (Default)</option>
+                        <option value="light">Light</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Default Category</label>
+                    <select id="setting-default-category" onchange="app.saveSettings()">
+                        <!-- Populated by JS -->
+                        <option value="General">General</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Date Format</label>
+                    <select id="setting-date-format" onchange="app.saveSettings()">
+                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <h3>Data Integrity</h3>
+                <p>Scan for members with missing required fields (based on current Schema).</p>
+                <button onclick="app.runIntegrityCheck()">Run Integrity Check</button>
+                <div id="integrity-results" style="margin-top: 15px; display: none;">
+                    <!-- Results populated by JS -->
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Backups</h3>
+                <p>Create a backup or restore from a previous point.</p>
+                <button onclick="app.backupData()">Create New Backup</button>
+                <div id="backups-list" style="margin-top: 15px; max-height: 200px; overflow-y: auto;">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Manage Categories</h3>
+                <ul id="categories-list" style="list-style: none; padding: 0;">
+                    <!-- Populated by JS -->
+                </ul>
+                <div style="margin-top: 10px; display: flex; gap: 10px;">
+                    <input type="text" id="new-category-input" placeholder="New Category Name">
+                    <button onclick="app.addCategory()">Add</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Member Preview Modal -->
+    <div id="member-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="app.closeModal()">&times;</span>
+            <div id="modal-body">
+                <!-- Content injected by JS -->
+            </div>
+            <div style="margin-top: 20px; text-align: right;">
+                <button class="danger" id="delete-member-btn">Delete Member</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast">Notification</div>
+
+    <script src="js/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>
