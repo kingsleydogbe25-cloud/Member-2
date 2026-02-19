@@ -63,7 +63,7 @@ const app = {
             console.log("Pywebview ready");
             app.splash.setProgress(35, 'Connecting to backend...');
 
-            await new Promise(r => setTimeout(r, 150)); // brief pause for visual feedback
+            await new Promise(r => setTimeout(r, 3150)); // brief pause for visual feedback
             app.splash.setProgress(60, 'Loading members...');
 
             await app.loadData();
@@ -841,10 +841,10 @@ const app = {
         footer.appendChild(editBtn);
 
         const exportBtn = document.createElement('button');
-        exportBtn.innerText = 'Export JSON';
+        exportBtn.innerText = 'Export PDF';
         exportBtn.className = 'secondary';
         exportBtn.style.marginRight = '10px';
-        exportBtn.onclick = () => app.exportSingleMember(member);
+        exportBtn.onclick = () => app.exportSingleMemberPDF(member);
         footer.appendChild(exportBtn);
 
         const deleteBtn = document.createElement('button');
@@ -873,14 +873,65 @@ const app = {
         }
     },
 
-    exportSingleMember: (member) => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(member, null, 2));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `member_${member.id}.json`);
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
+    exportSingleMemberPDF: async (member) => {
+        try {
+            if (!window.jspdf) {
+                app.showToast('PDF Library not loaded. Please wait.');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+            doc.setFontSize(18);
+            doc.text('Member Report', 40, 48);
+
+            doc.setFontSize(11);
+            const dateStr = new Date().toLocaleString();
+            doc.text(`Generated: ${dateStr}`, 40, 68);
+
+            // Build rows [label, value]
+            const rows = [];
+            // include basic id and short_id first
+            rows.push(['ID', member.id || '']);
+            if (member.short_id) rows.push(['Short ID', member.short_id]);
+
+            // schema fields
+            app.schema.forEach(field => {
+                let val = member[field.id];
+                if (val === undefined || val === null) val = '';
+                if (val === true) val = 'Yes';
+                if (val === false) val = 'No';
+                rows.push([field.label, String(val)]);
+            });
+
+            // category
+            rows.push(['Category', member.category || 'Uncategorized']);
+
+            // Add photo path if present
+            if (member.photo) rows.push(['Photo', member.photo]);
+
+            // Render table using autoTable
+            doc.autoTable({
+                head: [['Field', 'Value']],
+                body: rows,
+                startY: 100,
+                theme: 'grid',
+                styles: { fontSize: 10 },
+                headStyles: { fillColor: [0, 212, 255] }
+            });
+
+            const pdfData = doc.output('datauristring');
+            const res = await window.pywebview.api.save_pdf(pdfData);
+            if (res.status === 'success') {
+                app.showToast(`PDF saved to ${res.path}`);
+            } else {
+                app.showToast(res.message || 'Export cancelled');
+            }
+        } catch (e) {
+            console.error('Single member PDF export failed', e);
+            app.showToast('Export failed');
+        }
     },
 
     // Utils
@@ -943,26 +994,23 @@ const app = {
         if (render) app.renderMembersList();
     },
 
-    exportData: () => {
+    exportData: async () => {
+        console.log("exportData called");
         try {
-            if (!app.members || app.members.length === 0) {
-                app.showToast("No members to export");
-                return;
+            const res = await window.pywebview.api.export_json_file();
+            if (res.status === 'success') {
+                app.showToast(`JSON saved to ${res.path}`);
+            } else {
+                app.showToast(res.message || 'Export cancelled');
             }
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(app.members, null, 2));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "members_export.json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
         } catch (e) {
             console.error("JSON Export Error:", e);
             app.showToast("JSON Export failed: " + e.message);
         }
     },
 
-    exportPDF: () => {
+    exportPDF: async () => {
+        console.log("exportPDF called");
         try {
             if (!window.jspdf) {
                 app.showToast("PDF Library not loaded. Please wait or check connection.");
@@ -985,20 +1033,15 @@ const app = {
             doc.text(`Generated on: ${dateStr}`, 14, 30);
             doc.text(`Total Members: ${app.members.length}`, 14, 36);
 
+            // include all schema fields in the report, preserving order
             const headers = [['ID', 'Category']];
             const dataKeys = ['short_id', 'category'];
 
-            if (app.schema.length > 0) {
-                headers[0].splice(1, 0, app.schema[0].label);
-                dataKeys.splice(1, 0, app.schema[0].id);
-            }
-
-            let added = 0;
-            for (let i = 1; i < app.schema.length && added < 3; i++) {
-                headers[0].push(app.schema[i].label);
-                dataKeys.push(app.schema[i].id);
-                added++;
-            }
+            // insert each schema column before the final 'Category' column
+            app.schema.forEach(field => {
+                headers[0].splice(headers[0].length - 1, 0, field.label);
+                dataKeys.splice(dataKeys.length - 1, 0, field.id);
+            });
 
             const data = app.members.map(m => {
                 return dataKeys.map(key => {
@@ -1019,7 +1062,14 @@ const app = {
                 headStyles: { fillColor: [0, 212, 255] }
             });
 
-            doc.save('members_report.pdf');
+            // export blob to backend for saving rather than using anchor
+            const pdfData = doc.output('datauristring');
+            const res = await window.pywebview.api.save_pdf(pdfData);
+            if (res.status === 'success') {
+                app.showToast(`PDF saved to ${res.path}`);
+            } else {
+                app.showToast(res.message || 'Export cancelled');
+            }
         } catch (e) {
             console.error("PDF Export Error:", e);
             app.showToast("PDF Export failed: " + e.message);
@@ -1027,21 +1077,14 @@ const app = {
     },
 
     exportCSV: async () => {
+        console.log("exportCSV called");
         try {
-            const csvContent = await window.pywebview.api.export_csv();
-            if (!csvContent) {
-                app.showToast("No data to export");
-                return;
+            const res = await window.pywebview.api.export_csv_file();
+            if (res.status === 'success') {
+                app.showToast(`CSV saved to ${res.path}`);
+            } else {
+                app.showToast(res.message || 'Export cancelled');
             }
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', 'members_export.csv');
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
         } catch (e) {
             console.error(e);
             app.showToast("Export failed");

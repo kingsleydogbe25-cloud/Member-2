@@ -90,6 +90,7 @@ class Api:
         return {"status": "error", "message": "Import failed"}
 
     def export_csv(self):
+        # existing behaviour (returns text) for backwards compatibility
         members = self.db.get_members()
         schema = self.db.get_schema()
         
@@ -110,6 +111,104 @@ class Api:
             writer.writerow(m)
             
         return output.getvalue()
+
+    def export_json_file(self):
+        """Open save dialog and write members data as pretty JSON."""
+        members = self.db.get_members()
+        if not members:
+            return {"status": "error", "message": "No members to export"}
+
+        try:
+            # use pywebview dialog to ask for location; must reference the window instance
+            import webview
+            from webview import FileDialog
+            w = webview.windows[0] if webview.windows else None
+            if not w:
+                return {"status": "error", "message": "No window available"}
+            # correct filter string format: 'Description (*.ext)'
+            path = w.create_file_dialog(FileDialog.SAVE, file_types=('JSON (*.json)',), save_filename='members_export.json')
+            if not path:
+                return {"status": "error", "message": "Cancelled"}
+            filepath = path[0] if isinstance(path, (list, tuple)) else path
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(members, f, indent=2)
+            return {"status": "success", "path": filepath}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def export_csv_file(self):
+        """Open save dialog and write members data as CSV."""
+        members = self.db.get_members()
+        schema = self.db.get_schema()
+        if not members:
+            return {"status": "error", "message": "No members to export"}
+        try:
+            import webview
+            from webview import FileDialog
+            w = webview.windows[0] if webview.windows else None
+            if not w:
+                return {"status": "error", "message": "No window available"}
+            path = w.create_file_dialog(FileDialog.SAVE, file_types=('CSV (*.csv)',), save_filename='members_export.csv')
+            if not path:
+                return {"status": "error", "message": "Cancelled"}
+            filepath = path[0] if isinstance(path, (list, tuple)) else path
+            # write using earlier logic
+            schema_ids = [f['id'] for f in schema]
+            fieldnames = ['id', 'short_id'] + schema_ids + ['category']
+            with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore', restval='')
+                writer.writeheader()
+                for m in members:
+                    writer.writerow(m)
+            return {"status": "success", "path": filepath}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def export_member_file(self, member):
+        """Open save dialog and write a single member as pretty JSON."""
+        if not isinstance(member, dict):
+            return {"status": "error", "message": "Invalid member data"}
+
+        try:
+            import webview
+            from webview import FileDialog
+            w = webview.windows[0] if webview.windows else None
+            if not w:
+                return {"status": "error", "message": "No window available"}
+
+            default_name = f"member_{member.get('id','member')}.json"
+            path = w.create_file_dialog(FileDialog.SAVE, file_types=('JSON (*.json)',), save_filename=default_name)
+            if not path:
+                return {"status": "error", "message": "Cancelled"}
+            filepath = path[0] if isinstance(path, (list, tuple)) else path
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(member, f, indent=2)
+            return {"status": "success", "path": filepath}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def save_pdf(self, base64_str):
+        """Save a base64-encoded PDF string to disk via dialog."""
+        if not base64_str:
+            return {"status": "error", "message": "No PDF data"}
+        try:
+            import webview
+            from webview import FileDialog
+            w = webview.windows[0] if webview.windows else None
+            if not w:
+                return {"status": "error", "message": "No window available"}
+            path = w.create_file_dialog(FileDialog.SAVE, file_types=('PDF (*.pdf)',), save_filename='members_report.pdf')
+            if not path:
+                return {"status": "error", "message": "Cancelled"}
+            filepath = path[0] if isinstance(path, (list, tuple)) else path
+            if "," in base64_str:
+                base64_str = base64_str.split(",", 1)[1]
+            data = base64.b64decode(base64_str)
+            with open(filepath, 'wb') as f:
+                f.write(data)
+            return {"status": "success", "path": filepath}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
     
     def save_image(self, base64_str):
         try:
