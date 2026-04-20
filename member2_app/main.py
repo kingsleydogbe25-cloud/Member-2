@@ -1,3 +1,7 @@
+#from trial_guard import check_trial
+#check_trial()
+#.....................Above is related 30 Days trial..............
+
 import webview
 import os
 import sys
@@ -11,8 +15,12 @@ def main():
     api = Api()
     
     # Point to the web/index.html file
-    # Use absolute path relative to script file for robustness
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # Use absolute path relative to script file or _MEIPASS if bundled
+    if hasattr(sys, '_MEIPASS'):
+        base_dir = sys._MEIPASS
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        
     entry_point = os.path.join(base_dir, 'web', 'index.html')
     # Resolve absolute path
     entry_point = "file://" + os.path.abspath(entry_point)

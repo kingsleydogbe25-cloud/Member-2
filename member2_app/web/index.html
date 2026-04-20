@@ -1,206 +1,182 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Member 2</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="css/all.min.css">
 </head>
-
 <body>
 
-    <!-- Splash Screen -->
+    <!-- ───── Lock Screen ───── -->
+    <div id="lock-screen" style="display:none;">
+        <div class="lock-card">
+            <div class="lock-icon"><i class="fas fa-lock"></i></div>
+            <div class="lock-title">Member 2</div>
+            <div class="lock-sub">Enter your password to continue</div>
+            <input type="password" id="lock-password-input" placeholder="Password" autocomplete="current-password">
+            <div id="lock-error" class="lock-error"></div>
+            <button id="lock-submit-btn" onclick="app.submitLockScreen()">Unlock</button>
+        </div>
+    </div>
+
+    <!-- ───── Splash Screen ───── -->
     <div id="splash-screen">
         <div class="splash-blob splash-blob-1"></div>
         <div class="splash-blob splash-blob-2"></div>
         <div class="splash-blob splash-blob-3"></div>
         <div class="splash-card">
-            <div class="splash-icon">
-                <i class="fas fa-users-cog"></i>
-            </div>
+            <div class="splash-icon"><i class="fas fa-users-cog"></i></div>
             <div class="splash-title">Member 2</div>
             <div class="splash-tagline">Data Manager &amp; Member Registry</div>
-            <div class="splash-loader-track">
-                <div class="splash-loader-bar"></div>
-            </div>
+            <div class="splash-loader-track"><div class="splash-loader-bar"></div></div>
             <div class="splash-status">Initializing...</div>
         </div>
     </div>
 
-    <!-- Sidebar -->
+    <!-- ───── Sidebar ───── -->
     <nav id="sidebar">
-        <!-- toggle button will be inserted by JS for flexibility -->
-        <div class="brand">
-            <i class="fas fa-users-cog"></i><span class="brand-text">Member 2</span>
-        </div>
+        <div class="brand"><i class="fas fa-users-cog"></i><span class="brand-text">Member 2</span></div>
         <a class="nav-link active" onclick="app.navigate('dashboard')"><i class="fas fa-chart-pie"></i><span class="link-text">Dashboard</span></a>
         <a class="nav-link" onclick="app.navigate('members')"><i class="fas fa-users"></i><span class="link-text">Members</span></a>
         <a class="nav-link" onclick="app.navigate('add-member')"><i class="fas fa-user-plus"></i><span class="link-text">Add Member</span></a>
         <a class="nav-link" onclick="app.navigate('schema')"><i class="fas fa-tools"></i><span class="link-text">Member Details</span></a>
-        <a class="nav-link" onclick="app.navigate('settings')"><i class="fas fa-cog"></i><span class="link-text">Settings & Backup</span></a>
+        <a class="nav-link" onclick="app.navigate('settings')"><i class="fas fa-cog"></i><span class="link-text">Settings &amp; Backup</span></a>
     </nav>
 
-    <!-- Main Content -->
+    <!-- ───── Main Content ───── -->
     <main id="main-content">
 
-        <!-- Dashboard Section -->
+        <!-- Dashboard -->
         <section id="dashboard" class="active">
             <h1>Dashboard</h1>
             <div class="stats-container">
-                <div class="stat-card">
-                    <div class="stat-value" id="total-members-count">0</div>
-                    <div>Total Members</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="new-members-count">0</div>
-                    <div>New This Month</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="popular-category">-</div>
-                    <div>Top Category</div>
-                </div>
+                <div class="stat-card"><div class="stat-value" id="total-members-count">0</div><div>Total Members</div></div>
+                <div class="stat-card"><div class="stat-value" id="new-members-count">0</div><div>New This Month</div></div>
+                <div class="stat-card"><div class="stat-value" id="popular-category">-</div><div>Top Category</div></div>
             </div>
-
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
-                <div class="card">
-                    <h3>Category Breakdown</h3>
-                    <div style="height: 250px; position: relative;">
-                        <canvas id="categoryChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h3>Recent Members</h3>
-                    <div class="member-grid" id="dashboard-recent-members">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+                <div class="card"><h3>Category Breakdown</h3><div style="height:250px;position:relative;"><canvas id="categoryChart"></canvas></div></div>
+                <div class="card"><h3>Recent Members</h3><div class="member-grid" id="dashboard-recent-members"></div></div>
             </div>
         </section>
 
-        <!-- Members Section -->
+        <!-- Members -->
         <section id="members">
             <h1>Members</h1>
-            <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
-                <input type="text" id="search-bar" placeholder="Search members..." oninput="app.onSearch()"
-                    style="flex: 1; min-width: 200px;">
-
+            <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+                <input type="text" id="search-bar" placeholder="Search members..." oninput="app.onSearch()" style="flex:1;min-width:200px;">
                 <select id="category-filter" onchange="app.filterMembers()">
                     <option value="">All Categories</option>
-                    <!-- Populated by JS -->
                 </select>
-
                 <select id="sort-order" onchange="app.filterMembers()">
                     <option value="newest">Newest First</option>
                     <option value="oldest">Oldest First</option>
                     <option value="az">Name (A-Z)</option>
                     <option value="za">Name (Z-A)</option>
                 </select>
-
-                <div style="display: flex; gap: 5px;">
-                    <button class="secondary" onclick="document.getElementById('import-file').click()" title="Import"><i
-                            class="fas fa-file-import"></i> Import</button>
-                    <input type="file" id="import-file" accept=".json,.csv" style="display: none;"
-                        onchange="app.importData(this)">
+                <div style="display:flex;gap:5px;">
+                    <button class="secondary" onclick="document.getElementById('import-file').click()" title="Import"><i class="fas fa-file-import"></i> Import</button>
+                    <input type="file" id="import-file" accept=".json,.csv" style="display:none;" onchange="app.importData(this)">
                 </div>
             </div>
-
-            <div class="member-grid" id="members-list">
-                <!-- Populated by JS -->
+            <!-- Items-per-page control -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:0.85rem;color:var(--text-secondary);">
+                <span>Show</span>
+                <select id="items-per-page" onchange="app.changeItemsPerPage()" style="width:auto;padding:4px 8px;font-size:0.85rem;">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <span>per page</span>
+                <span id="members-count-label" style="margin-left:auto;"></span>
             </div>
-
-            <div id="pagination-controls"
-                style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px;">
-                <button class="secondary" onclick="app.changePage(-1)" id="prev-page-btn" disabled>Previous</button>
-                <span id="page-indicator">Page 1 of 1</span>
-                <button class="secondary" onclick="app.changePage(1)" id="next-page-btn" disabled>Next</button>
+            <div class="member-grid" id="members-list"></div>
+            <div id="pagination-controls" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:20px;flex-wrap:wrap;">
+                <button class="secondary" onclick="app.goToPage(1)" id="first-page-btn" disabled title="First">«</button>
+                <button class="secondary" onclick="app.changePage(-1)" id="prev-page-btn" disabled>‹ Prev</button>
+                <div id="page-numbers" style="display:flex;gap:6px;"></div>
+                <button class="secondary" onclick="app.changePage(1)" id="next-page-btn" disabled>Next ›</button>
+                <button class="secondary" onclick="app.goToLastPage()" id="last-page-btn" disabled title="Last">»</button>
             </div>
         </section>
 
-        <!-- Add Member Section -->
+        <!-- Add Member -->
         <section id="add-member">
             <h1 id="add-member-title">Add New Member</h1>
+            <!-- Duplicate warning banner -->
+            <div id="duplicate-warning" style="display:none;background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.4);border-radius:10px;padding:12px 16px;margin-bottom:16px;color:#ffb74d;font-size:0.9rem;">
+                <i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i>
+                <span id="duplicate-warning-text"></span>
+                <a href="#" style="color:#ffb74d;margin-left:10px;text-decoration:underline;" onclick="app.viewDuplicate(event)">View duplicate</a>
+            </div>
             <div class="card">
                 <form id="add-member-form">
                     <input type="hidden" name="id" id="member-id-hidden">
-                    <!-- Dynamic fields will be injected here -->
                     <div id="dynamic-form-fields"></div>
-
                     <div class="form-group">
                         <label>Category</label>
-                        <select id="member-category-select" name="category">
-                            <!-- Populated by JS -->
-                        </select>
+                        <select id="member-category-select" name="category"></select>
                     </div>
-
                     <button type="submit">Save Member</button>
                     <button type="button" class="secondary" onclick="app.resetForm()">Reset</button>
                 </form>
             </div>
         </section>
 
-        <!-- Schema Builder Section (Member Details) -->
+        <!-- Schema Builder -->
         <section id="schema">
             <h1>Member Details Configuration</h1>
             <div class="card">
                 <p>Define what data you want to collect for each member.</p>
                 <table id="schema-table">
-                    <thead>
-                        <tr>
-                            <th>Field Label</th>
-                            <th>Field Type</th>
-                            <th>Options (Select only)</th>
-                            <th>Required?</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Populated by JS -->
-                    </tbody>
+                    <thead><tr><th>Field Label</th><th>Field Type</th><th>Options (Select only)</th><th>Required?</th><th>Actions</th></tr></thead>
+                    <tbody></tbody>
                 </table>
-                <button class="secondary" style="margin-top: 15px;" onclick="app.addSchemaRow()">+ Add Field</button>
+                <button class="secondary" style="margin-top:15px;" onclick="app.addSchemaRow()">+ Add Field</button>
                 <br><br>
                 <button onclick="app.saveSchema()">Save Configuration</button>
             </div>
         </section>
 
-        <!-- Settings Section -->
+        <!-- Settings -->
         <section id="settings">
             <h1>Settings</h1>
 
-            <div class="card" style="margin-bottom: 20px;">
+            <div class="card" style="margin-bottom:20px;">
                 <h3>Export Data</h3>
                 <p>Download your member data in various formats.</p>
-                <div style="display: flex; gap: 10px;">
-                    <button class="secondary" onclick="app.exportData()"><i class="fas fa-file-code"></i> JSON</button>
-                    <button class="secondary" onclick="app.exportCSV()"><i class="fas fa-file-csv"></i> Excel
-                        (CSV)</button>
-                    <button class="secondary" onclick="app.exportPDF()"><i class="fas fa-file-pdf"></i> PDF
-                        Report</button>
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;margin-bottom:5px;font-size:0.9rem;color:#aaa;">Filter by Category</label>
+                    <select id="settings-export-category" style="width:100%;max-width:300px;"><option value="">All Categories</option></select>
+                </div>
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;margin-bottom:10px;font-size:0.9rem;color:#aaa;">Details to Include</label>
+                    <div id="export-field-selection" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;background:rgba(255,255,255,0.05);padding:15px;border-radius:8px;"></div>
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button class="secondary" onclick="app.exportSettingsData('json')"><i class="fas fa-file-code"></i> JSON</button>
+                    <button class="secondary" onclick="app.exportSettingsData('csv')"><i class="fas fa-file-csv"></i> Excel (CSV)</button>
+                    <button class="secondary" onclick="app.exportSettingsData('pdf')"><i class="fas fa-file-pdf"></i> PDF Report</button>
                 </div>
             </div>
 
-            <div class="card" style="margin-bottom: 20px;">
+            <div class="card" style="margin-bottom:20px;">
                 <h3>Application Settings</h3>
-                <div class="form-group" style="margin-bottom: 15px;">
+                <div class="form-group" style="margin-bottom:15px;">
                     <label>Theme</label>
                     <select id="setting-theme" onchange="app.saveSettings()">
                         <option value="dark">Dark (Default)</option>
                         <option value="light">Light</option>
                     </select>
                 </div>
-                <div class="form-group" style="margin-bottom: 15px;">
+                <div class="form-group" style="margin-bottom:15px;">
                     <label>Default Category</label>
-                    <select id="setting-default-category" onchange="app.saveSettings()">
-                        <!-- Populated by JS -->
-                        <option value="General">General</option>
-                    </select>
+                    <select id="setting-default-category" onchange="app.saveSettings()"><option value="General">General</option></select>
                 </div>
-                <div class="form-group" style="margin-bottom: 15px;">
+                <div class="form-group" style="margin-bottom:15px;">
                     <label>Date Format</label>
                     <select id="setting-date-format" onchange="app.saveSettings()">
                         <option value="YYYY-MM-DD">YYYY-MM-DD</option>
@@ -208,60 +184,98 @@
                         <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                     </select>
                 </div>
-            </div>
-
-            <div class="card" style="margin-bottom: 20px;">
-                <h3>Data Integrity</h3>
-                <p>Scan for members with missing required fields (based on current Schema).</p>
-                <button onclick="app.runIntegrityCheck()">Run Integrity Check</button>
-                <div id="integrity-results" style="margin-top: 15px; display: none;">
-                    <!-- Results populated by JS -->
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label>Members Per Page</label>
+                    <select id="setting-items-per-page" onchange="app.saveSettings()">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="card">
+            <!-- Password Protection -->
+            <div class="card" style="margin-bottom:20px;" id="password-settings-card">
+                <h3><i class="fas fa-lock" style="margin-right:8px;color:var(--accent);"></i>Password Protection</h3>
+                <p style="margin-bottom:16px;color:var(--text-secondary);font-size:0.9rem;">Require a password each time Member 2 is opened.</p>
+
+                <div id="password-status-row" style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+                    <span id="password-status-badge" class="pwd-badge pwd-off">Off</span>
+                    <span id="password-status-text" style="font-size:0.9rem;color:var(--text-secondary);">Password protection is disabled.</span>
+                </div>
+
+                <!-- Toggle switch -->
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="password-enabled-toggle" onchange="app.onPasswordToggle()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span style="font-size:0.9rem;">Enable password protection</span>
+                </div>
+
+                <!-- Set/Change Password form -->
+                <div id="password-form-area">
+                    <div class="form-group" style="max-width:320px;margin-bottom:10px;">
+                        <label id="new-pwd-label">New Password</label>
+                        <input type="password" id="new-password-input" placeholder="Enter new password" autocomplete="new-password">
+                    </div>
+                    <div class="form-group" style="max-width:320px;margin-bottom:16px;">
+                        <label>Confirm Password</label>
+                        <input type="password" id="confirm-password-input" placeholder="Confirm password" autocomplete="new-password">
+                    </div>
+                    <button onclick="app.savePassword()" style="margin-right:10px;">Set Password</button>
+                    <button class="danger" id="remove-pwd-btn" onclick="app.removePassword()" style="display:none;">Remove Password</button>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom:20px;">
+                <h3>Data Integrity</h3>
+                <p>Scan for members with missing required fields.</p>
+                <button onclick="app.runIntegrityCheck()">Run Integrity Check</button>
+                <div id="integrity-results" style="margin-top:15px;display:none;"></div>
+            </div>
+
+            <div class="card" style="margin-bottom:20px;">
                 <h3>Backups</h3>
                 <p>Create a backup or restore from a previous point.</p>
                 <button onclick="app.backupData()">Create New Backup</button>
-                <div id="backups-list" style="margin-top: 15px; max-height: 200px; overflow-y: auto;">
-                    <!-- Populated by JS -->
-                </div>
+                <div id="backups-list" style="margin-top:15px;max-height:200px;overflow-y:auto;"></div>
             </div>
 
             <div class="card">
                 <h3>Manage Categories</h3>
-                <ul id="categories-list" style="list-style: none; padding: 0;">
-                    <!-- Populated by JS -->
-                </ul>
-                <div style="margin-top: 10px; display: flex; gap: 10px;">
+                <ul id="categories-list" style="list-style:none;padding:0;"></ul>
+                <div style="margin-top:10px;display:flex;gap:10px;">
                     <input type="text" id="new-category-input" placeholder="New Category Name">
                     <button onclick="app.addCategory()">Add</button>
                 </div>
             </div>
         </section>
-
     </main>
 
     <!-- Member Preview Modal -->
     <div id="member-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="app.closeModal()">&times;</span>
-            <div id="modal-body">
-                <!-- Content injected by JS -->
-            </div>
-            <div style="margin-top: 20px; text-align: right;">
-                <button class="danger" id="delete-member-btn">Delete Member</button>
-            </div>
+            <div id="modal-body"></div>
+            <div style="margin-top:20px;text-align:right;" id="modal-footer"></div>
         </div>
+    </div>
+
+    <!-- ───── Undo Delete Toast ───── -->
+    <div id="undo-bar" style="display:none;">
+        <span id="undo-bar-text">Member deleted</span>
+        <button onclick="app.undoDelete()" id="undo-btn"><i class="fas fa-undo"></i> Undo</button>
+        <div id="undo-progress"></div>
     </div>
 
     <!-- Toast -->
     <div id="toast">Notification</div>
 
     <script src="js/chart.umd.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script src="js/jspdf.umd.min.js"></script>
+    <script src="js/jspdf.plugin.autotable.min.js"></script>
     <script src="js/app.js"></script>
 </body>
-
 </html>

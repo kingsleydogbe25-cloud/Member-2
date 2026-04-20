@@ -1,151 +1,234 @@
+import sqlite3
 import json
 import os
 import shutil
 from datetime import datetime
 
+
 class Database:
     def __init__(self, data_dir=None):
         if data_dir is None:
-            # Default to the 'data' directory in the project root (one level up from backend/)
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             self.data_dir = os.path.join(base_dir, 'data')
         else:
             self.data_dir = data_dir
-        
-        self.members_file = os.path.join(self.data_dir, 'members.json')
-        self.schema_file = os.path.join(self.data_dir, 'schema.json')
-        self.categories_file = os.path.join(self.data_dir, 'categories.json')
-        self.settings_file = os.path.join(self.data_dir, 'settings.json')
-        self.init_db()
 
-        # Load data into memory
-        self.members = self.load_json(self.members_file)
-        self.schema = self.load_json(self.schema_file)
-        self.categories = self.load_json(self.categories_file)
-        self.settings = self.load_json(self.settings_file)
+        os.makedirs(self.data_dir, exist_ok=True)
+        self.db_path = os.path.join(self.data_dir, 'member2.db')
+        self._init_db()
 
-    def init_db(self):
-        if not os.path.exists(self.data_dir):
-            os.makedirs(self.data_dir)
-        
-        self._ensure_file(self.members_file, [])
-        self._ensure_file(self.schema_file, [{"id": "name", "label": "Name", "type": "text"}, {"id": "dob", "label": "Date of Birth", "type": "date"}])
-        self._ensure_file(self.categories_file, ["General"])
-        self._ensure_file(self.settings_file, {"theme": "dark", "default_category": "General", "date_format": "YYYY-MM-DD"})
+    # ─────────────────────────── connection helper ───────────────────────────
 
-    def _ensure_file(self, filepath, default_data):
-        if not os.path.exists(filepath):
-            with open(filepath, 'w') as f:
-                json.dump(default_data, f, indent=4)
+    def _conn(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        return conn
 
-    def load_json(self, filepath):
-        try:
-            with open(filepath, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Error loading {filepath}: {e}")
-            return []
+    # ───────────────────────────── schema setup ──────────────────────────────
 
-    def save_json(self, filepath, data):
-        try:
-            with open(filepath, 'w') as f:
-                json.dump(data, f, indent=4)
-            return True
-        except Exception as e:
-            print(f"Error saving {filepath}: {e}")
-            return False
+    def _init_db(self):
+        with self._conn() as conn:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS members (
+                    id       TEXT PRIMARY KEY,
+                    short_id TEXT,
+                    category TEXT DEFAULT 'General',
+                    data     TEXT NOT NULL DEFAULT '{}'
+                );
+
+                CREATE TABLE IF NOT EXISTS schema_fields (
+                    id         TEXT PRIMARY KEY,
+                    label      TEXT NOT NULL,
+                    type       TEXT NOT NULL DEFAULT 'text',
+                    sort_order INTEGER DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS categories (
+                    name TEXT PRIMARY KEY
+                );
+
+                CREATE TABLE IF NOT EXISTS settings (
+                    key   TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+            """)
+
+            cur = conn.execute("SELECT COUNT(*) FROM schema_fields")
+            if cur.fetchone()[0] == 0:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO schema_fields (id, label, type, sort_order) VALUES (?,?,?,?)",
+                    [("name", "Name", "text", 0), ("dob", "Date of Birth", "date", 1)]
+                )
+
+            cur = conn.execute("SELECT COUNT(*) FROM categories")
+            if cur.fetchone()[0] == 0:
+                conn.execute("INSERT OR IGNORE INTO categories (name) VALUES ('General')")
+
+            cur = conn.execute("SELECT COUNT(*) FROM settings")
+            if cur.fetchone()[0] == 0:
+                defaults = [
+                    ("theme", "dark"),
+                    ("default_category", "General"),
+                    ("date_format", "YYYY-MM-DD"),
+                ]
+                conn.executemany("INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)", defaults)
+
+    # ─────────────────────────────── members ─────────────────────────────────
 
     def get_members(self):
-        return self.members
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT id, short_id, category, data FROM members"
+            ).fetchall()
+        result = []
+        for row in rows:
+            member = json.loads(row["data"])
+            member["id"] = row["id"]
+            member["short_id"] = row["short_id"]
+            member["category"] = row["category"]
+            result.append(member)
+        return result
 
     def save_member(self, member):
-        # Check if updating or new
-        for i, m in enumerate(self.members):
-            if m.get('id') == member.get('id'):
-                self.members[i] = member
-                break
-        else:
-            self.members.append(member)
-        return self.save_json(self.members_file, self.members)
-    
+        member = dict(member)
+        member_id = member.get("id")
+        short_id = member.get("short_id")
+        category = member.get("category", "General")
+
+        blob_keys = {k: v for k, v in member.items()
+                     if k not in ("id", "short_id", "category")}
+        data_json = json.dumps(blob_keys)
+
+        with self._conn() as conn:
+            conn.execute("""
+                INSERT INTO members (id, short_id, category, data)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    short_id = excluded.short_id,
+                    category = excluded.category,
+                    data     = excluded.data
+            """, (member_id, short_id, category, data_json))
+        return True
+
     def save_members_bulk(self, new_members):
-        # Simple append/merge strategy
-        existing_ids = {m.get('id'): i for i, m in enumerate(self.members)}
-        
-        for nm in new_members:
-            if 'id' in nm and nm['id'] in existing_ids:
-                self.members[existing_ids[nm['id']]] = nm
-            else:
-                self.members.append(nm)
-        return self.save_json(self.members_file, self.members)
+        try:
+            for m in new_members:
+                self.save_member(m)
+            return True
+        except Exception as e:
+            print(f"Bulk save error: {e}")
+            return False
 
     def delete_member(self, member_id):
-        self.members = [m for m in self.members if m.get('id') != member_id]
-        return self.save_json(self.members_file, self.members)
+        with self._conn() as conn:
+            conn.execute("DELETE FROM members WHERE id = ?", (member_id,))
+        return True
+
+    # ─────────────────────────────── schema ──────────────────────────────────
 
     def get_schema(self):
-        return self.schema
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT id, label, type FROM schema_fields ORDER BY sort_order"
+            ).fetchall()
+        return [{"id": r["id"], "label": r["label"], "type": r["type"]} for r in rows]
 
     def save_schema(self, schema):
-        self.schema = schema
-        return self.save_json(self.schema_file, self.schema)
+        with self._conn() as conn:
+            conn.execute("DELETE FROM schema_fields")
+            conn.executemany(
+                "INSERT INTO schema_fields (id, label, type, sort_order) VALUES (?,?,?,?)",
+                [(f["id"], f["label"], f.get("type", "text"), i)
+                 for i, f in enumerate(schema)]
+            )
+        return True
+
+    # ────────────────────────────── categories ───────────────────────────────
 
     def get_categories(self):
-        return self.categories
+        with self._conn() as conn:
+            rows = conn.execute("SELECT name FROM categories ORDER BY name").fetchall()
+        return [r["name"] for r in rows]
 
     def save_categories(self, categories):
-        self.categories = categories
-        return self.save_json(self.categories_file, self.categories)
+        with self._conn() as conn:
+            conn.execute("DELETE FROM categories")
+            conn.executemany(
+                "INSERT INTO categories (name) VALUES (?)",
+                [(c,) for c in categories]
+            )
+        return True
 
     def delete_category(self, category_name):
-        if category_name in self.categories:
-            self.categories.remove(category_name)
-            self.save_categories(self.categories)
-            
-            # Update members who had this category
-            updated = False
-            for m in self.members:
-                if m.get('category') == category_name:
-                    m['category'] = 'Uncategorized'
-                    updated = True
-            if updated:
-                self.save_json(self.members_file, self.members)
-            return True
-        return False
+        with self._conn() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM categories WHERE name = ?", (category_name,)
+            )
+            if cur.fetchone()[0] == 0:
+                return False
+            conn.execute("DELETE FROM categories WHERE name = ?", (category_name,))
+            conn.execute(
+                "UPDATE members SET category = 'Uncategorized' WHERE category = ?",
+                (category_name,)
+            )
+        return True
 
-    def backup_data(self):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_dir = os.path.join(self.data_dir, 'backups', timestamp)
-        if not os.path.exists(backup_dir):
-            os.makedirs(backup_dir)
-        
-        shutil.copy2(self.members_file, backup_dir)
-        shutil.copy2(self.schema_file, backup_dir)
-        shutil.copy2(self.categories_file, backup_dir)
-        return timestamp # Return ID instead of full path for UI
+    # ──────────────────────────────── settings ───────────────────────────────
+
+    def get_settings(self):
+        with self._conn() as conn:
+            rows = conn.execute("SELECT key, value FROM settings").fetchall()
+        return {r["key"]: r["value"] for r in rows}
+
+    def save_settings(self, settings):
+        with self._conn() as conn:
+            conn.executemany(
+                "INSERT INTO settings (key, value) VALUES (?,?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                [(k, v) for k, v in settings.items()]
+            )
+        return True
+
+    # ──────────────────────────────── backups ────────────────────────────────
+
+    def backup_data(self, backup_type='manual'):
+        backup_id = "auto_backup" if backup_type == "auto" else "manual_backup"
+        backup_dir = os.path.join(self.data_dir, 'backups', backup_id)
+        os.makedirs(backup_dir, exist_ok=True)
+
+        dest = os.path.join(backup_dir, 'member2.db')
+        src_conn = sqlite3.connect(self.db_path)
+        dst_conn = sqlite3.connect(dest)
+        try:
+            src_conn.backup(dst_conn)
+        finally:
+            dst_conn.close()
+            src_conn.close()
+
+        return backup_id
 
     def get_backups(self):
         backups_dir = os.path.join(self.data_dir, 'backups')
         if not os.path.exists(backups_dir):
             return []
-        # Return list of folder names (timestamps)
-        return sorted([d for d in os.listdir(backups_dir) if os.path.isdir(os.path.join(backups_dir, d))], reverse=True)
+        return sorted(
+            [d for d in os.listdir(backups_dir)
+             if os.path.isdir(os.path.join(backups_dir, d))],
+            reverse=True
+        )
 
     def restore_backup(self, backup_id):
-        backup_dir = os.path.join(self.data_dir, 'backups', backup_id)
-        if not os.path.exists(backup_dir):
+        backup_db = os.path.join(self.data_dir, 'backups', backup_id, 'member2.db')
+        if not os.path.exists(backup_db):
             return False
-            
         try:
-            shutil.copy2(os.path.join(backup_dir, 'members.json'), self.data_dir)
-            shutil.copy2(os.path.join(backup_dir, 'schema.json'), self.data_dir)
-            shutil.copy2(os.path.join(backup_dir, 'categories.json'), self.data_dir)
-            
-            # Reload data into memory
-            self.members = self.load_json(self.members_file)
-            self.schema = self.load_json(self.schema_file)
-            self.categories = self.load_json(self.categories_file)
-            
+            src_conn = sqlite3.connect(backup_db)
+            dst_conn = sqlite3.connect(self.db_path)
+            src_conn.backup(dst_conn)
+            dst_conn.close()
+            src_conn.close()
             return True
         except Exception as e:
             print(f"Restore failed: {e}")
@@ -161,10 +244,3 @@ class Database:
         except Exception as e:
             print(f"Delete backup failed: {e}")
             return False
-
-    def get_settings(self):
-        return self.settings
-
-    def save_settings(self, settings):
-        self.settings = settings
-        return self.save_json(self.settings_file, self.settings)

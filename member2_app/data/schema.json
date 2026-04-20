@@ -1,0 +1,12 @@
+[
+    {
+        "id": "name",
+        "label": "Name",
+        "type": "text"
+    },
+    {
+        "id": "dob",
+        "label": "Date of Birth",
+        "type": "date"
+    }
+]

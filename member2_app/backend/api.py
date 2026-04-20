@@ -12,7 +12,7 @@ class Api:
         # Auto-backup on startup
         try:
             print("Creating auto-backup...")
-            self.db.backup_data()
+            self.db.backup_data(backup_type='auto')
         except Exception as e:
             print(f"Auto-backup failed: {e}")
 
@@ -112,11 +112,21 @@ class Api:
             
         return output.getvalue()
 
-    def export_json_file(self):
+    def export_json_file(self, members=None, fields=None):
         """Open save dialog and write members data as pretty JSON."""
-        members = self.db.get_members()
+        if members is None:
+            members = self.db.get_members()
+            
         if not members:
             return {"status": "error", "message": "No members to export"}
+
+        # Filter fields if provided
+        if fields and isinstance(fields, list):
+            filtered_members = []
+            for m in members:
+                filtered_m = {k: v for k, v in m.items() if k in fields}
+                filtered_members.append(filtered_m)
+            members = filtered_members
 
         try:
             # use pywebview dialog to ask for location; must reference the window instance
@@ -136,9 +146,10 @@ class Api:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    def export_csv_file(self):
+    def export_csv_file(self, members=None, fields=None):
         """Open save dialog and write members data as CSV."""
-        members = self.db.get_members()
+        if members is None:
+            members = self.db.get_members()
         schema = self.db.get_schema()
         if not members:
             return {"status": "error", "message": "No members to export"}
@@ -152,9 +163,14 @@ class Api:
             if not path:
                 return {"status": "error", "message": "Cancelled"}
             filepath = path[0] if isinstance(path, (list, tuple)) else path
-            # write using earlier logic
-            schema_ids = [f['id'] for f in schema]
-            fieldnames = ['id', 'short_id'] + schema_ids + ['category']
+            
+            # Decide headers
+            if fields and isinstance(fields, list):
+                fieldnames = fields
+            else:
+                schema_ids = [f['id'] for f in schema]
+                fieldnames = ['id', 'short_id'] + schema_ids + ['category']
+                
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore', restval='')
                 writer.writeheader()
@@ -258,3 +274,54 @@ class Api:
         if self.db.save_settings(settings):
             return {"status": "success", "message": "Settings saved"}
         return {"status": "error", "message": "Failed to save settings"}
+
+    # ─── Password Protection ──────────────────────────────────────────────────
+
+    def get_password_settings(self):
+        """Return whether password protection is enabled (never return the hash)."""
+        s = self.db.get_settings()
+        return {
+            "enabled": s.get("password_enabled", "false") == "true",
+            "set": bool(s.get("password_hash", ""))
+        }
+
+    def set_password(self, new_password):
+        """Hash and store a new password, enable protection."""
+        import hashlib
+        if not new_password:
+            return {"status": "error", "message": "Password cannot be empty"}
+        h = hashlib.sha256(new_password.encode()).hexdigest()
+        s = self.db.get_settings()
+        s["password_hash"] = h
+        s["password_enabled"] = "true"
+        self.db.save_settings(s)
+        return {"status": "success", "message": "Password set"}
+
+    def verify_password(self, password):
+        """Return success/fail for a given password attempt."""
+        import hashlib
+        s = self.db.get_settings()
+        stored = s.get("password_hash", "")
+        if not stored:
+            return {"status": "error", "message": "No password set"}
+        h = hashlib.sha256(password.encode()).hexdigest()
+        if h == stored:
+            return {"status": "success"}
+        return {"status": "error", "message": "Incorrect password"}
+
+    def toggle_password_protection(self, enabled):
+        """Enable or disable password protection (password must already be set)."""
+        s = self.db.get_settings()
+        if enabled and not s.get("password_hash", ""):
+            return {"status": "error", "message": "Set a password first"}
+        s["password_enabled"] = "true" if enabled else "false"
+        self.db.save_settings(s)
+        return {"status": "success"}
+
+    def remove_password(self):
+        """Clear password hash and disable protection."""
+        s = self.db.get_settings()
+        s["password_hash"] = ""
+        s["password_enabled"] = "false"
+        self.db.save_settings(s)
+        return {"status": "success", "message": "Password removed"}
